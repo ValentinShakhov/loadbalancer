@@ -6,11 +6,11 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.random.Random
 
-class Provider(private val id: String) {
+class Provider(private val id: String, poolSize: Int) {
 
     private val executor: ThreadPoolExecutor = ThreadPoolExecutor(
-        MAX_TASKS_PER_PROVIDER,
-        MAX_TASKS_PER_PROVIDER,
+        poolSize,
+        poolSize,
         0L,
         TimeUnit.MILLISECONDS,
         SynchronousQueue(),

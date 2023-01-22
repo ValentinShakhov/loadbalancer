@@ -2,7 +2,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read
 import kotlin.concurrent.write
 
-class LoadBalancerRandom : LoadBalancer() {
+class LoadBalancerRandom(providerPoolSize: Int) : LoadBalancer(providerPoolSize) {
 
     private val lock = ReentrantReadWriteLock()
 
@@ -42,12 +42,10 @@ class LoadBalancerRandom : LoadBalancer() {
         }
     }
 
-    override fun register(provider: Provider) {
+    override fun register(providerId: String) {
         lock.write {
-            with(provider.getId()) {
-                activeProviders[this] = Provider(this)
-                println("Registered Provider ${provider.getId()}")
-            }
+            activeProviders[providerId] = Provider(providerId, providerPoolSize)
+            println("Registered Provider $providerId")
         }
     }
 
@@ -59,14 +57,14 @@ class LoadBalancerRandom : LoadBalancer() {
 
     private fun checkActiveProvidersSize() {
         if (activeProviders.isEmpty()) {
-            throw RuntimeException("No active providers found")
+            throw NoActiveProvidersException()
         }
     }
 
     private fun checkNumberOfSessions() {
         lock.read {
-            if (numOfSessions.get() >= activeProviders.size * MAX_TASKS_PER_PROVIDER) {
-                throw RuntimeException("Providers' capacity is reached")
+            if (numOfSessions.get() >= activeProviders.size * providerPoolSize) {
+                throw ProvidersCapacityReached()
             }
         }
     }

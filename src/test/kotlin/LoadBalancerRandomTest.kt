@@ -1,0 +1,1 @@
+class LoadBalancerRandomTest : LoadBalancerTest(LoadBalancerRandom(2))

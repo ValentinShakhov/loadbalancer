@@ -2,7 +2,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read
 import kotlin.concurrent.write
 
-class LoadBalancerRoundRobin : LoadBalancer() {
+class LoadBalancerRoundRobin(providerPoolSize: Int) : LoadBalancer(providerPoolSize) {
 
     private val collectionsLock = ReentrantReadWriteLock()
     private val nextProviderLock = ReentrantReadWriteLock()
@@ -23,15 +23,28 @@ class LoadBalancerRoundRobin : LoadBalancer() {
             }
 
             return execute(it.provider)
-        } ?: throw RuntimeException("No active providers found")
+        } ?: throw NoActiveProvidersException()
     }
 
     override fun exclude(id: String) {
         collectionsLock.write {
             findProviderById(id)?.let {
-                it.prev!!.next = it.next
-                it.next?.let { next -> next.prev = it.prev }
+                if (firstProvider == it) {
+                    firstProvider = it.next
+                } else {
+                    it.prev!!.next = it.next
+                }
+                if (nextProvider == it) {
+                    nextProvider = if (it.next == null) {
+                        firstProvider
+                    } else {
+                        it.next
+                    }
+                }
+                it.next?.prev = it.prev
 
+                it.next = null
+                it.prev = null
                 inactiveProviders[it.provider.getId()] = it.provider
                 println("Excluded Provider $id")
             } ?: println("Provider $id is not included")
@@ -43,8 +56,13 @@ class LoadBalancerRoundRobin : LoadBalancer() {
             inactiveProviders[id]?.let {
                 val newProviderWrap = ProviderWrap(it)
                 val lastProvider = findLastProvider()
-                lastProvider.next = newProviderWrap
-                newProviderWrap.prev = lastProvider
+                if (lastProvider == null) {
+                    nextProvider = newProviderWrap
+                    firstProvider = newProviderWrap
+                } else {
+                    lastProvider.next = newProviderWrap
+                    newProviderWrap.prev = lastProvider
+                }
 
                 inactiveProviders.remove(id)
                 println("Included Provider $id")
@@ -52,17 +70,17 @@ class LoadBalancerRoundRobin : LoadBalancer() {
         }
     }
 
-    override fun register(provider: Provider) {
+    override fun register(providerId: String) {
         collectionsLock.write {
-            with(ProviderWrap(provider)) {
-                if (firstProvider == null) {
+            with(ProviderWrap(Provider(providerId, providerPoolSize))) {
+                val lastProvider: ProviderWrap? = findLastProvider()
+                if (firstProvider == null && lastProvider == null) {
                     firstProvider = this
                     nextProvider = this
                     println("Registered first Provider ${provider.getId()}")
                 } else {
-                    val lastProvider: ProviderWrap = findLastProvider()
                     this.prev = lastProvider
-                    lastProvider.next = this
+                    lastProvider!!.next = this
                     println("Registered Provider ${provider.getId()}")
                 }
             }
@@ -97,18 +115,18 @@ class LoadBalancerRoundRobin : LoadBalancer() {
         return curProvider
     }
 
-    private fun findLastProvider(): ProviderWrap {
-        var lastProvider: ProviderWrap? = nextProvider
-        while (lastProvider!!.next != null) {
-            lastProvider = lastProvider.next
+    private fun findLastProvider(): ProviderWrap? {
+        var provider: ProviderWrap? = firstProvider
+        while (provider?.next != null) {
+            provider = provider.next
         }
-        return lastProvider
+        return provider
     }
 
     private fun checkNumberOfSessions() {
         collectionsLock.read {
-            if (numOfSessions.get() >= getNumberOfActiveProviders() * MAX_TASKS_PER_PROVIDER) {
-                throw RuntimeException("Providers' capacity is reached")
+            if (numOfSessions.get() >= getNumberOfActiveProviders() * providerPoolSize) {
+                throw ProvidersCapacityReached()
             }
         }
     }

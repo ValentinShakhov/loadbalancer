@@ -2,7 +2,7 @@ import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
-abstract class LoadBalancer {
+abstract class LoadBalancer(val providerPoolSize: Int) {
 
     protected val inactiveProviders: MutableMap<String, Provider> = HashMap()
     protected val numOfSessions = AtomicInteger()
@@ -16,7 +16,7 @@ abstract class LoadBalancer {
         println("Balancer stopped")
     }
 
-    abstract fun register(provider: Provider)
+    abstract fun register(providerId: String)
 
     abstract fun exclude(id: String)
 
@@ -32,7 +32,7 @@ abstract class LoadBalancer {
 
     protected fun execute(provider: Provider): String {
         if (shuttingDown.get()) {
-            throw RuntimeException("Balancer is out of service")
+            throw OutOfServiceException()
         }
 
         println("Using Provider ${provider.getId()}")
@@ -55,5 +55,6 @@ abstract class LoadBalancer {
         println("Retrying execution...")
         return get()
     }
+
     private fun shutdownInactiveProviders() = inactiveProviders.values.forEach { it.shutdown() }
 }

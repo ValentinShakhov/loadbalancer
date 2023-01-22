@@ -1,25 +1,29 @@
 fun main() {
-    val balancer = LoadBalancerRoundRobin()
+    val balancer = LoadBalancerRoundRobin(2)
 
-    for (id in 1..MAX_PROVIDERS) {
-        balancer.register(Provider(id.toString()))
+    for (id in 1..10) {
+        balancer.register(id.toString())
     }
 
-    val heartBeatChecker = HeartBeatChecker(balancer)
+    val heartBeatChecker = HeartBeatChecker(balancer, 2, 1000L)
     heartBeatChecker.start()
 
-    Thread {
-        println("Started request Thread")
+    val requests = listOf(Thread {
         println(balancer.get())
-    }.start()
-    Thread.sleep(100)
-    Thread {
-        println("Started request Thread")
+    }, Thread {
         println(balancer.get())
-    }.start()
+    }, Thread {
+        println(balancer.get())
+    }, Thread {
+        println(balancer.get())
+    }, Thread {
+        println(balancer.get())
+    })
 
-    Thread.sleep(5000)
+
+    requests.forEach { it.start() }
+
+    requests.forEach { it.join() }
     balancer.shutDown()
-
     heartBeatChecker.stop()
 }
