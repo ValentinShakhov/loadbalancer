@@ -8,6 +8,7 @@ balancer and the provider having a public method
 named get()
 
 ## Functions
+
 – Generate provider
 – Register a list of providers
 - Random invocation
