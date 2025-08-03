@@ -9,8 +9,8 @@ named get()
 
 ## Functions
 
-– Generate provider
-– Register a list of providers
+- Generate provider
+- Register a list of providers
 - Random invocation
 - Round Robin invocation
 - Manual node exclusion / inclusion
